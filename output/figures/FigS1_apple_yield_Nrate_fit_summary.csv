@@ -1,0 +1,2 @@
+"model","crop","n","n_N_levels","intercept_a","linear_b","quadratic_c","R2","adj_R2","p_linear","p_quadratic","AIC"
+"Yield ~ N_rate + I(N_rate^2)","苹果园",33,7,33.9985,0.063074,-6.82531e-05,0.101,0.041,0.07804,0.09685,281.364

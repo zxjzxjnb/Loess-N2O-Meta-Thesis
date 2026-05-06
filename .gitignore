@@ -1,0 +1,27 @@
+# macOS and editor metadata
+.DS_Store
+.claude/
+.Rproj.user/
+
+# R session and scratch output
+.RData
+.Rhistory
+.Rapp.history
+Rplots.pdf
+Rplot*.png
+weekly_digest_*.md
+output/figures/_font_test*
+output/figures/font_test_quartz.png
+output/figures/*.tiff
+
+# Local package libraries and caches
+Rlib/
+__pycache__/
+*.py[cod]
+
+# Temporary working directories
+tmp/
+.tmp.*/
+
+# Word temporary lock files
+~$*
