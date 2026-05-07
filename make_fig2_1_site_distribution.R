@@ -27,7 +27,7 @@ suppressPackageStartupMessages({
 # ── Config ────────────────────────────────────────────────────────────────────
 input_xlsx    <- file.path(project_dir, "TableS1.xlsx")
 output_dir    <- file.path(project_dir, "output", "figures")
-include_potato <- FALSE
+include_potato <- TRUE
 font_fam    <- if (Sys.info()[["sysname"]] == "Darwin") "Heiti SC" else "sans"
 device_type <- if (Sys.info()[["sysname"]] == "Darwin" && capabilities("aqua")) "quartz" else "cairo"
 dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
@@ -57,7 +57,7 @@ parse_coordinate <- function(x) {
 crop_lookup <- c(
   "spring maize" = "春玉米", "winter wheat" = "冬小麦",
   "spring wheat" = "春小麦", "apple"        = "苹果园",
-  "potato"       = "马铃薯"
+  "potato"       = "其他"
 )
 target_keys   <- c("spring maize", "winter wheat", "spring wheat", "apple")
 if (include_potato) target_keys <- c(target_keys, "potato")
@@ -71,14 +71,41 @@ sites_all <- raw %>%
     crop_key   = str_to_lower(str_squish(Crop)),
     crop_label = unname(crop_lookup[crop_key]),
     latitude   = parse_coordinate(Latitude),
-    longitude  = parse_coordinate(Longitude)
+    longitude  = parse_coordinate(Longitude),
+    coordinate_note = ""
+  ) %>%
+  mutate(
+    coordinate_override = str_detect(
+      References,
+      fixed("Effects of different land use patterns on soil properties and N2O emissions",
+            ignore_case = TRUE)
+    ) &
+      crop_key == "spring wheat" &
+      near(longitude, 103.52, tol = 1e-6) &
+      near(latitude, 34.26, tol = 1e-6),
+    longitude = if_else(coordinate_override, 104 + 38 / 60 + 30 / 3600, longitude),
+    latitude  = if_else(coordinate_override, 35 + 34 / 60 + 53 / 3600, latitude),
+    coordinate_note = if_else(
+      coordinate_override,
+      "Du et al. (2023) T-field coordinate conflicts with the paper site description; mapped to Dingxi site description.",
+      coordinate_note
+    )
   ) %>%
   filter(!is.na(References), !is.na(crop_key),
          !is.na(latitude), !is.na(longitude), !is.na(crop_label)) %>%
-  distinct(References, crop_key, crop_label, Provice, longitude, latitude)
+  distinct(References, crop_key, crop_label, Provice, longitude, latitude, coordinate_note)
 
 sites <- sites_all %>%
   filter(crop_key %in% target_keys) %>%
+  group_by(crop_key, crop_label, longitude, latitude) %>%
+  summarise(
+    Provice = paste(sort(unique(Provice)), collapse = "/"),
+    reference_n = n_distinct(References),
+    References = paste(sort(unique(References)), collapse = " | "),
+    coordinate_note = paste(sort(unique(coordinate_note[coordinate_note != ""])),
+                            collapse = "; "),
+    .groups = "drop"
+  ) %>%
   mutate(crop_label = factor(crop_label, levels = target_labels)) %>%
   arrange(longitude, latitude, crop_label, References) %>%
   group_by(longitude, latitude) %>%
@@ -151,13 +178,15 @@ COLORS <- c(
   "春玉米" = "#2166AC",  # blue
   "冬小麦" = "#D6604D",  # warm red
   "春小麦" = "#F59B20",  # amber
-  "苹果园" = "#35978F"   # teal
+  "苹果园" = "#35978F",  # teal
+  "其他"   = "#D6CF8A"   # pale olive
 )
 SHAPES <- c(
   "春玉米" = 21,  # filled circle
   "冬小麦" = 24,  # filled triangle up
   "春小麦" = 22,  # filled square
-  "苹果园" = 23   # filled diamond
+  "苹果园" = 23,  # filled diamond
+  "其他"   = 21   # filled circle
 )
 
 # ── Map extent ────────────────────────────────────────────────────────────────
@@ -325,7 +354,9 @@ sites %>%
     `纬度`         = latitude,
     `绘图经度`     = plot_x,
     `绘图纬度`     = plot_y,
-    `同坐标记录数` = overlap_n
+    `同坐标记录数` = overlap_n,
+    `文献数`       = reference_n,
+    `坐标备注`     = coordinate_note
   ) %>%
   write.csv(csv_file, row.names = FALSE, fileEncoding = "UTF-8")
 

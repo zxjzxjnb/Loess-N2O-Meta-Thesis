@@ -53,22 +53,37 @@ CROP_LOOKUP = {
     "winter wheat": "冬小麦",
     "spring wheat": "春小麦",
     "apple": "苹果园",
-    "potato": "马铃薯",
+    "potato": "其他",
 }
-TARGET_KEYS = ["spring maize", "winter wheat", "spring wheat", "apple"]
+TARGET_KEYS = ["spring maize", "winter wheat", "spring wheat", "apple", "potato"]
 TARGET_LABELS = [CROP_LOOKUP[key] for key in TARGET_KEYS]
+PLOT_UNIQUE_SITES = True
+
+COORDINATE_OVERRIDES = [
+    {
+        "reference_contains": "Effects of different land use patterns on soil properties and N2O emissions",
+        "crop_key": "spring wheat",
+        "from_lon": 103.52,
+        "from_lat": 34.26,
+        "to_lon": 104 + 38 / 60 + 30 / 3600,
+        "to_lat": 35 + 34 / 60 + 53 / 3600,
+        "note": "Du et al. (2023) T-field coordinate conflicts with the paper site description; mapped to Dingxi site description.",
+    }
+]
 
 COLORS = {
     "春玉米": "#256FB3",
     "冬小麦": "#D95F4F",
     "春小麦": "#F2A12E",
     "苹果园": "#3A9C99",
+    "其他": "#D6CF8A",
 }
 SHAPES = {
     "春玉米": "circle",
     "冬小麦": "triangle",
     "春小麦": "square",
     "苹果园": "diamond",
+    "其他": "circle",
 }
 
 
@@ -124,13 +139,46 @@ def build_site_table() -> pd.DataFrame:
         longitude=raw["Longitude"].map(parse_coordinate),
     )
     data["crop_label"] = data["crop_key"].map(CROP_LOOKUP)
+    data["coordinate_note"] = ""
 
-    sites = (
+    for override in COORDINATE_OVERRIDES:
+        mask = (
+            data["References"].astype(str).str.contains(
+                override["reference_contains"], case=False, na=False, regex=False
+            )
+            & data["crop_key"].eq(override["crop_key"])
+            & np.isclose(data["longitude"], override["from_lon"], atol=1e-6)
+            & np.isclose(data["latitude"], override["from_lat"], atol=1e-6)
+        )
+        data.loc[mask, "longitude"] = override["to_lon"]
+        data.loc[mask, "latitude"] = override["to_lat"]
+        data.loc[mask, "coordinate_note"] = override["note"]
+
+    records = (
         data.dropna(subset=["References", "crop_key", "crop_label", "latitude", "longitude"])
         .drop_duplicates(["References", "crop_key", "crop_label", "Provice", "longitude", "latitude"])
         .query("crop_key in @TARGET_KEYS")
         .copy()
     )
+
+    if PLOT_UNIQUE_SITES:
+        sites = (
+            records.groupby(["crop_key", "crop_label", "longitude", "latitude"], sort=False, observed=True)
+            .agg(
+                Provice=("Provice", lambda values: "/".join(sorted({str(value) for value in values}))),
+                References=("References", lambda values: " | ".join(sorted({str(value) for value in values}))),
+                reference_n=("References", "nunique"),
+                coordinate_note=(
+                    "coordinate_note",
+                    lambda values: "; ".join(sorted({str(value) for value in values if str(value)})),
+                ),
+            )
+            .reset_index()
+        )
+    else:
+        sites = records.copy()
+        sites["reference_n"] = 1
+
     sites["crop_label"] = pd.Categorical(sites["crop_label"], categories=TARGET_LABELS, ordered=True)
     sites = sites.sort_values(["longitude", "latitude", "crop_label", "References"]).reset_index(drop=True)
 
@@ -336,7 +384,9 @@ def draw_north_arrow(draw: ImageDraw.ImageDraw, project) -> None:
 def draw_legend(panel: Image.Image, sites: pd.DataFrame) -> None:
     draw = ImageDraw.Draw(panel, "RGBA")
     counts = sites["crop_label"].value_counts().to_dict()
-    x, y, w, h = 70, 82, 450, 345
+    x, y, w = 70, 82, 450
+    row_step = 58
+    h = 125 + row_step * len(TARGET_LABELS)
     draw.rounded_rectangle((x, y, x + w, y + h), radius=14, fill=(255, 255, 255, 232), outline=(80, 80, 80, 95), width=2)
     draw.text((x + 34, y + 30), "作物体系", font=F_LEGEND_TITLE, fill="#222222", anchor="la")
     row_y = y + 105
@@ -346,7 +396,7 @@ def draw_legend(panel: Image.Image, sites: pd.DataFrame) -> None:
         draw_marker(draw, marker_x, marker_y, SHAPES[label], COLORS[label], size=42, stroke=3)
         text = f"{label} (n={int(counts.get(label, 0))})"
         draw.text((x + 102, row_y - 14), text, font=F_LEGEND, fill="#222222", anchor="la")
-        row_y += 58
+        row_y += row_step
 
 
 def draw_inset(world_segments: list[dict[str, object]]) -> Image.Image:
@@ -372,7 +422,18 @@ def draw_inset(world_segments: list[dict[str, object]]) -> Image.Image:
 
 def write_site_csv(sites: pd.DataFrame) -> None:
     out = sites.assign(crop_label=sites["crop_label"].astype(str))[
-        ["References", "crop_label", "Provice", "longitude", "latitude", "plot_x", "plot_y", "overlap_n"]
+        [
+            "References",
+            "crop_label",
+            "Provice",
+            "longitude",
+            "latitude",
+            "plot_x",
+            "plot_y",
+            "overlap_n",
+            "reference_n",
+            "coordinate_note",
+        ]
     ].rename(
         columns={
             "References": "参考文献",
@@ -383,6 +444,8 @@ def write_site_csv(sites: pd.DataFrame) -> None:
             "plot_x": "绘图经度",
             "plot_y": "绘图纬度",
             "overlap_n": "同坐标记录数",
+            "reference_n": "文献数",
+            "coordinate_note": "坐标备注",
         }
     )
     out.to_csv(CSV_FILE, index=False, encoding="utf-8-sig", quoting=csv.QUOTE_MINIMAL)
