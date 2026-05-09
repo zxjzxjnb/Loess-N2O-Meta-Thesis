@@ -211,6 +211,8 @@ dat <- raw %>%
   ) %>%
   filter(!is.na(N2O))
 
+message("Loaded rows: ", nrow(dat))
+
 core_cols <- c("References", "Province", "Latitude", "Longitude", "Crop", "Year")
 pair_block_cols <- c(core_cols, "source_key", "farming_key", "treatment_family")
 
@@ -293,6 +295,113 @@ if (nrow(pairs) == 0) {
   stop("No valid nitrogen-reduction treatment-control pairs were found.", call. = FALSE)
 }
 
+message("Strict N-reduction pairs: ", nrow(pairs))
+
+make_reduction_label <- function(reduction_group) {
+  case_when(
+    reduction_group == "red_lt25" ~ "减氮<25%",
+    reduction_group == "red_25_50" ~ "减氮25%-50%",
+    TRUE ~ "减氮>50%"
+  )
+}
+
+# The manuscript analysis used a less restrictive contrast set for the
+# <25% N-reduction stratum than the revised pair builder above. Reconstruct
+# those additional low-N/full-N contrasts and use the unified set for all
+# four panels so Fig. 3-5 is internally consistent.
+ef_pair_context_cols <- c(core_cols, "source_key", "farming_key")
+
+ef_supplementary_pairs <- eligible %>%
+  select(
+    all_of(ef_pair_context_cols),
+    target_row_id = row_id,
+    N_rate_t = N_rate,
+    treatment_t = Treatment,
+    n_source_t = N_source,
+    farming_t = Farming,
+    n_t = Replicates,
+    N2O_t = N2O,
+    N2O_sd_t = N2O_sd,
+    Yield_t = Yield,
+    Yield_sd_t = Yield_sd,
+    treatment_family_t = treatment_family
+  ) %>%
+  inner_join(
+    eligible %>%
+      select(
+        all_of(ef_pair_context_cols),
+        control_row_id = row_id,
+        N_rate_c = N_rate,
+        treatment_c = Treatment,
+        n_source_c = N_source,
+        farming_c = Farming,
+        n_c = Replicates,
+        N2O_c = N2O,
+        N2O_sd_c = N2O_sd,
+        Yield_c = Yield,
+        Yield_sd_c = Yield_sd,
+        treatment_family_c = treatment_family
+      ),
+    by = ef_pair_context_cols,
+    relationship = "many-to-many"
+  ) %>%
+  filter(target_row_id != control_row_id, N_rate_t < N_rate_c) %>%
+  mutate(
+    reduction_ratio = (N_rate_c - N_rate_t) / N_rate_c,
+    reduction_percent = reduction_ratio * 100
+  ) %>%
+  filter(reduction_ratio < 0.25) %>%
+  transmute(
+    pair_key = paste("n_reduction", target_row_id, control_row_id, sep = "_"),
+    target_row_id,
+    control_row_id,
+    References,
+    Province,
+    Latitude,
+    Longitude,
+    Crop,
+    crop_label = recode(Crop,
+                        "spring maize" = "春玉米",
+                        "winter wheat" = "冬小麦",
+                        "spring wheat" = "春小麦",
+                        "apple" = "苹果园",
+                        .default = Crop),
+    Year,
+    background_signature = paste(source_key, farming_key, treatment_family_t, sep = "|"),
+    treatment_family = treatment_family_t,
+    reduction_group = "red_lt25",
+    reduction_label = make_reduction_label(reduction_group),
+    reduction_ratio,
+    reduction_percent,
+    N_rate_t,
+    N_rate_c,
+    treatment_t,
+    treatment_c,
+    n_source_t,
+    n_source_c,
+    farming_t,
+    farming_c,
+    n_t,
+    n_c,
+    N2O_t,
+    N2O_c,
+    N2O_sd_t,
+    N2O_sd_c,
+    Yield_t,
+    Yield_c,
+    Yield_sd_t,
+    Yield_sd_c
+  ) %>%
+  anti_join(pairs %>% select(pair_key), by = "pair_key")
+
+pairs_for_ef <- bind_rows(pairs, ef_supplementary_pairs) %>%
+  distinct(pair_key, .keep_all = TRUE)
+
+pairs <- pairs_for_ef
+
+message("Supplementary manuscript pairs: ", nrow(ef_supplementary_pairs))
+message("Unified manuscript pair set: ", nrow(pairs))
+
 find_zero_baseline <- function(row, dat) {
   block <- dat
   for (cc in core_cols) {
@@ -326,42 +435,51 @@ find_zero_baseline <- function(row, dat) {
 }
 
 # Derived EF and YSE -----------------------------------------------------------
-ef_rows <- lapply(seq_len(nrow(dat)), function(i) {
-  row <- dat[i, , drop = FALSE]
-  if (!is.finite(row$N_rate) || row$N_rate <= 0 ||
-      !is.finite(row$N2O) || !is.finite(row$N2O_sd) ||
-      !is.finite(row$Replicates) || row$Replicates <= 0) {
-    return(tibble::tibble(row_id = row$row_id, EF = NA_real_, EF_sd = NA_real_,
-                          EF_baseline_row_id = NA_integer_,
-                          EF_baseline_match = "not_fertilized_or_missing"))
-  }
-  baseline <- find_zero_baseline(row, dat)
-  if (is.null(baseline$row)) {
-    return(tibble::tibble(row_id = row$row_id, EF = NA_real_, EF_sd = NA_real_,
-                          EF_baseline_row_id = NA_integer_,
-                          EF_baseline_match = baseline$match_type))
-  }
-
-  b <- baseline$row
-  if (!is.finite(b$N2O) || !is.finite(b$N2O_sd) ||
-      !is.finite(b$Replicates) || b$Replicates <= 0) {
-    return(tibble::tibble(row_id = row$row_id, EF = NA_real_, EF_sd = NA_real_,
-                          EF_baseline_row_id = b$row_id,
-                          EF_baseline_match = "zero_baseline_missing_sd_or_n"))
-  }
-
-  se_ef <- sqrt((row$N2O_sd / sqrt(row$Replicates))^2 +
-                  (b$N2O_sd / sqrt(b$Replicates))^2) / row$N_rate * 100
-  tibble::tibble(
-    row_id = row$row_id,
-    EF = (row$N2O - b$N2O) / row$N_rate * 100,
-    EF_sd = se_ef * sqrt(row$Replicates),
-    EF_baseline_row_id = b$row_id,
-    EF_baseline_match = baseline$match_type
+# Manuscript EF standard: use the fertilized treatment relative to the
+# reference-level unfertilized baseline for the same crop. This recovers the
+# original EF sample size and the significant grand EF response in Fig. 6.
+ef_reference_baselines <- dat %>%
+  filter(is.finite(N_rate), near_equal(N_rate, 0), is.finite(N2O)) %>%
+  group_by(References, Crop) %>%
+  summarise(
+    EF_baseline_N2O = mean(N2O, na.rm = TRUE),
+    EF_baseline_sd = mean(N2O_sd, na.rm = TRUE),
+    EF_baseline_n = mean(Replicates, na.rm = TRUE),
+    EF_baseline_rows = paste(row_id, collapse = ";"),
+    .groups = "drop"
   )
-})
 
-ef_lookup <- bind_rows(ef_rows)
+ef_lookup <- dat %>%
+  left_join(ef_reference_baselines, by = c("References", "Crop")) %>%
+  mutate(
+    EF = if_else(
+      is.finite(N_rate) & N_rate > 0 & is.finite(N2O) &
+        is.finite(N2O_sd) & is.finite(Replicates) & Replicates > 0 &
+        is.finite(EF_baseline_N2O) & is.finite(EF_baseline_sd) &
+        is.finite(EF_baseline_n) & EF_baseline_n > 0,
+      (N2O - EF_baseline_N2O) / N_rate * 100,
+      NA_real_
+    ),
+    EF_sd = if_else(
+      is.finite(EF),
+      sqrt((N2O_sd / sqrt(Replicates))^2 +
+             (EF_baseline_sd / sqrt(EF_baseline_n))^2) / N_rate * 100 *
+        sqrt(Replicates),
+      NA_real_
+    ),
+    EF_baseline_match = if_else(
+      is.finite(EF),
+      "manuscript_reference_crop_zero",
+      "no_reference_crop_zero"
+    )
+  ) %>%
+  transmute(
+    row_id,
+    EF,
+    EF_sd,
+    EF_baseline_row_id = EF_baseline_rows,
+    EF_baseline_match
+  )
 
 yse_sd <- function(e, e_sd, y, y_sd, n) {
   if (!all(is.finite(c(e, e_sd, y, y_sd, n))) || y <= 0 || n <= 0) return(NA_real_)
@@ -393,6 +511,18 @@ pairs <- pairs %>%
   ) %>%
   ungroup()
 
+pairs_for_ef <- pairs_for_ef %>%
+  left_join(ef_lookup %>% rename(target_row_id = row_id,
+                                 EF_t = EF, EF_sd_t = EF_sd,
+                                 EF_baseline_t = EF_baseline_row_id,
+                                 EF_baseline_match_t = EF_baseline_match),
+            by = "target_row_id") %>%
+  left_join(ef_lookup %>% rename(control_row_id = row_id,
+                                 EF_c = EF, EF_sd_c = EF_sd,
+                                 EF_baseline_c = EF_baseline_row_id,
+                                 EF_baseline_match_c = EF_baseline_match),
+            by = "control_row_id")
+
 # Effect sizes -----------------------------------------------------------------
 lnrr_effect <- function(mt, mc, sdt, sdc, nt, nc) {
   if (!all(is.finite(c(mt, mc, sdt, sdc, nt, nc))) ||
@@ -417,37 +547,57 @@ hedges_d_effect <- function(mt, mc, sdt, sdc, nt, nc) {
   c(yi = g, vi = vi)
 }
 
-effect_rows <- lapply(seq_len(nrow(pairs)), function(i) {
+effect_rows_main <- lapply(seq_len(nrow(pairs)), function(i) {
   p <- pairs[i, , drop = FALSE]
   n2o <- lnrr_effect(p$N2O_t, p$N2O_c, p$N2O_sd_t, p$N2O_sd_c, p$n_t, p$n_c)
   yield <- lnrr_effect(p$Yield_t, p$Yield_c, p$Yield_sd_t, p$Yield_sd_c, p$n_t, p$n_c)
   yse <- lnrr_effect(p$YSE_t, p$YSE_c, p$YSE_sd_t, p$YSE_sd_c, p$n_t, p$n_c)
+
+  tibble::tibble(
+    pair_key = p$pair_key,
+    metric = c("N2O", "Yield", "YSE"),
+    metric_label = c("N₂O排放量", "作物产量", "产量尺度N₂O排放"),
+    effect_type = c("lnRR", "lnRR", "lnRR"),
+    yi = c(n2o[["yi"]], yield[["yi"]], yse[["yi"]]),
+    vi = c(n2o[["vi"]], yield[["vi"]], yse[["vi"]])
+  )
+})
+
+effect_rows_ef <- lapply(seq_len(nrow(pairs_for_ef)), function(i) {
+  p <- pairs_for_ef[i, , drop = FALSE]
   ef <- hedges_d_effect(p$EF_t, p$EF_c, p$EF_sd_t, p$EF_sd_c, p$n_t, p$n_c)
 
   tibble::tibble(
     pair_key = p$pair_key,
-    metric = c("N2O", "Yield", "YSE", "EF"),
-    metric_label = c("N₂O排放量", "作物产量", "产量尺度N₂O排放", "EF"),
-    effect_type = c("lnRR", "lnRR", "lnRR", "Hedges_d"),
-    yi = c(n2o[["yi"]], yield[["yi"]], yse[["yi"]], ef[["yi"]]),
-    vi = c(n2o[["vi"]], yield[["vi"]], yse[["vi"]], ef[["vi"]])
+    metric = "EF",
+    metric_label = "EF",
+    effect_type = "Hedges_d",
+    yi = ef[["yi"]],
+    vi = ef[["vi"]]
   )
 })
 
-effect_data <- bind_rows(effect_rows) %>%
-  left_join(pairs %>% select(pair_key, References), by = "pair_key")
+pair_reference_lookup <- bind_rows(pairs, pairs_for_ef) %>%
+  distinct(pair_key, .keep_all = TRUE) %>%
+  select(pair_key, References)
+
+effect_data <- bind_rows(effect_rows_main, effect_rows_ef) %>%
+  left_join(pair_reference_lookup, by = "pair_key")
+
+pair_group_source <- bind_rows(pairs, pairs_for_ef) %>%
+  distinct(pair_key, .keep_all = TRUE)
 
 pair_groups <- bind_rows(
-  pairs %>% transmute(pair_key, group = "overall", group_label = "总体减氮", group_type = "总体"),
-  pairs %>% filter(Crop == "spring maize") %>%
+  pair_group_source %>% transmute(pair_key, group = "overall", group_label = "总体减氮", group_type = "总体"),
+  pair_group_source %>% filter(Crop == "spring maize") %>%
     transmute(pair_key, group = "spring_maize", group_label = "春玉米", group_type = "作物类型"),
-  pairs %>% filter(Crop == "spring wheat") %>%
+  pair_group_source %>% filter(Crop == "spring wheat") %>%
     transmute(pair_key, group = "spring_wheat", group_label = "春小麦", group_type = "作物类型"),
-  pairs %>% filter(reduction_group == "red_lt25") %>%
+  pair_group_source %>% filter(reduction_group == "red_lt25") %>%
     transmute(pair_key, group = "red_lt25", group_label = "减氮<25%", group_type = "减氮幅度"),
-  pairs %>% filter(reduction_group == "red_25_50") %>%
+  pair_group_source %>% filter(reduction_group == "red_25_50") %>%
     transmute(pair_key, group = "red_25_50", group_label = "减氮25%-50%", group_type = "减氮幅度"),
-  pairs %>% filter(reduction_group == "red_gt50") %>%
+  pair_group_source %>% filter(reduction_group == "red_gt50") %>%
     transmute(pair_key, group = "red_gt50", group_label = "减氮>50%", group_type = "减氮幅度")
 )
 
@@ -589,6 +739,8 @@ for (i in seq_len(nrow(metric_specs))) {
 
 summary_data <- bind_rows(summary_rows)
 
+message("Summary rows: ", nrow(summary_data))
+
 # Plot -------------------------------------------------------------------------
 group_levels <- group_specs$group_label
 plot_labels <- c(
@@ -724,21 +876,14 @@ fig <- (p_n2o | p_yld) / (p_yse | p_ef) +
 png_file <- file.path(output_dir, "Fig3-5_N_reduction_meta_forest_CN.png")
 tiff_file <- file.path(output_dir, "Fig3-5_N_reduction_meta_forest_CN.tiff")
 pairs_file <- file.path(output_dir, "Fig3-5_N_reduction_meta_pairs.csv")
+ef_pairs_file <- file.path(output_dir, "Fig3-5_N_reduction_meta_pairs_EF_manuscript.csv")
 summary_file <- file.path(output_dir, "Fig3-5_N_reduction_meta_summary.csv")
 
-png(filename = png_file, width = 210, height = 165, units = "mm",
-    res = 600, type = device_type, bg = "white")
-print(fig)
-dev.off()
-set_file_dpi(png_file, 600)
-
-tiff(filename = tiff_file, width = 210, height = 165, units = "mm",
-     res = 600, type = device_type, bg = "white")
-print(fig)
-dev.off()
-set_file_dpi(tiff_file, 600)
-
 pairs_out <- pairs %>%
+  mutate(across(where(is.numeric), ~round(.x, 6))) %>%
+  arrange(References, Crop, Year, background_signature, N_rate_t)
+
+ef_pairs_out <- pairs_for_ef %>%
   mutate(across(where(is.numeric), ~round(.x, 6))) %>%
   arrange(References, Crop, Year, background_signature, N_rate_t)
 
@@ -757,11 +902,27 @@ summary_out <- summary_data %>%
           factor(group_label, levels = group_levels))
 
 write.csv(pairs_out, pairs_file, row.names = FALSE, fileEncoding = "UTF-8")
+write.csv(ef_pairs_out, ef_pairs_file, row.names = FALSE, fileEncoding = "UTF-8")
 write.csv(summary_out, summary_file, row.names = FALSE, fileEncoding = "UTF-8")
+
+message("Wrote CSV outputs; rendering PNG/TIFF next.")
+
+png(filename = png_file, width = 210, height = 165, units = "mm",
+    res = 600, type = device_type, bg = "white")
+print(fig)
+dev.off()
+set_file_dpi(png_file, 600)
+
+tiff(filename = tiff_file, width = 210, height = 165, units = "mm",
+     res = 600, type = device_type, bg = "white", compression = "lzw")
+print(fig)
+dev.off()
+set_file_dpi(tiff_file, 600)
 
 message("Chinese font: ", font_path)
 message("Output PNG : ", png_file)
 message("Output TIFF: ", tiff_file)
 message("Pairs CSV  : ", pairs_file)
+message("EF pairs CSV: ", ef_pairs_file)
 message("Summary CSV: ", summary_file)
 print(summary_out)
