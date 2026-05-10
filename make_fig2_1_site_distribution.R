@@ -7,7 +7,8 @@ local_lib   <- file.path(project_dir, "Rlib")
 if (dir.exists(local_lib)) .libPaths(c(local_lib, .libPaths()))
 
 required_packages <- c("readxl", "dplyr", "tidyr", "stringr",
-                       "ggplot2", "maps", "mapdata", "patchwork", "grid", "scales")
+                       "ggplot2", "maps", "mapdata", "patchwork", "grid", "scales",
+                       "showtext", "sysfonts")
 missing_packages <- required_packages[
   !vapply(required_packages, requireNamespace, logical(1), quietly = TRUE)
 ]
@@ -19,18 +20,31 @@ suppressPackageStartupMessages({
   library(readxl); library(dplyr); library(tidyr); library(stringr)
   library(ggplot2); library(maps); library(mapdata)
   library(patchwork); library(grid); library(scales)
+  library(showtext); library(sysfonts)
 })
-
-# NOTE: Run from RStudio (Source button) for proper CJK rendering.
-# The quartz device in RStudio resolves "Heiti SC" via macOS system fonts automatically.
 
 # ── Config ────────────────────────────────────────────────────────────────────
 input_xlsx    <- file.path(project_dir, "TableS1.xlsx")
 output_dir    <- file.path(project_dir, "output", "figures")
 include_potato <- TRUE
-font_fam    <- if (Sys.info()[["sysname"]] == "Darwin") "Heiti SC" else "sans"
 device_type <- if (Sys.info()[["sysname"]] == "Darwin" && capabilities("aqua")) "quartz" else "cairo"
 dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
+
+font_candidates <- c(
+  "/Library/Fonts/Arial Unicode.ttf",
+  "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
+  "/System/Library/Fonts/STHeiti Medium.ttc",
+  "/System/Library/Fonts/Supplemental/Songti.ttc"
+)
+font_path <- font_candidates[file.exists(font_candidates)][1]
+if (is.na(font_path)) {
+  stop("No usable Chinese font found. Checked: ", paste(font_candidates, collapse = ", "),
+       call. = FALSE)
+}
+font_fam <- "fig21_cn"
+sysfonts::font_add(family = font_fam, regular = font_path)
+showtext::showtext_auto(enable = TRUE)
+showtext::showtext_opts(dpi = 600)
 
 # ── Coordinate parser (unchanged) ─────────────────────────────────────────────
 parse_coordinate <- function(x) {
@@ -64,6 +78,9 @@ if (include_potato) target_keys <- c(target_keys, "potato")
 target_labels <- unname(crop_lookup[target_keys])
 
 raw <- readxl::read_excel(input_xlsx, sheet = 1, guess_max = 10000)
+if (!"Provice" %in% names(raw) && "Province" %in% names(raw)) {
+  raw <- dplyr::rename(raw, Provice = Province)
+}
 
 sites_all <- raw %>%
   tidyr::fill(Provice, Latitude, Longitude, Crop, References, .direction = "down") %>%
@@ -123,9 +140,22 @@ if (length(excluded) > 0)
   message("Crops excluded from plot: ", paste(excluded, collapse = ", "))
 
 # ── Map polygons ──────────────────────────────────────────────────────────────
+split_long_map_segments <- function(df, max_step = 0.7) {
+  df %>%
+    arrange(group, order) %>%
+    group_by(group) %>%
+    mutate(
+      step = sqrt((long - lag(long))^2 + (lat - lag(lat))^2),
+      path_piece = cumsum(if_else(is.na(step) | step <= max_step, 0L, 1L)),
+      path_group = interaction(group, path_piece, drop = TRUE)
+    ) %>%
+    ungroup()
+}
+
 china_province <- ggplot2::map_data("china") %>%
-  filter(long >= 97, long <= 118, lat >= 31, lat <= 44)
-china_full <- ggplot2::map_data("china")
+  split_long_map_segments()
+china_full <- ggplot2::map_data("china") %>%
+  split_long_map_segments()
 
 # ── Geographic features ───────────────────────────────────────────────────────
 # Prefer the public Loess Plateau Region KMZ boundary when present.
@@ -207,10 +237,10 @@ na_y_tip  <- 40.7
 
 # ── Inset: China overview map ─────────────────────────────────────────────────
 inset <- ggplot() +
-  geom_polygon(
-    data  = subset(china_full, long >= 73 & long <= 136 & lat >= 15 & lat <= 54),
-    aes(long, lat, group = group),
-    fill  = "#D9D9D9", color = "#BBBBBB", linewidth = 0.12
+  geom_path(
+    data  = china_full,
+    aes(long, lat, group = path_group),
+    color = "#B7B7B7", linewidth = 0.14
   ) +
   annotate("rect",
            xmin = xlim_map[1], xmax = xlim_map[2],
@@ -226,16 +256,17 @@ inset <- ggplot() +
 # ── Main map ──────────────────────────────────────────────────────────────────
 p <- ggplot() +
 
-  # Province polygons
-  geom_polygon(
-    data  = china_province, aes(long, lat, group = group),
-    fill  = "#F5F5F0", color = "#C0C0B8", linewidth = 0.2
+  # Province borders only. Avoid base-map polygon fills because the maps
+  # database can introduce faint triangular fills after clipping.
+  geom_path(
+    data  = china_province, aes(long, lat, group = path_group),
+    color = "#C8C8BE", linewidth = 0.22
   ) +
 
   # Loess Plateau envelope (approximate)
   geom_polygon(
     data  = loess_polygon, aes(x, y),
-    fill  = "#F2DEB5", color = "#8B6834", linewidth = 0.65, alpha = 0.55
+    fill  = "#F3E7CB", color = "#8B6834", linewidth = 0.65
   ) +
 
   # Province name labels
@@ -252,7 +283,7 @@ p <- ggplot() +
   # Site points
   geom_point(
     data  = sites, aes(plot_x, plot_y, fill = crop_label, shape = crop_label),
-    color = "white", size = 3.8, stroke = 0.5, alpha = 0.92
+    color = "white", size = 3.8, stroke = 0.5
   ) +
 
   # ── Scale bar (graphic, two-tone) ─────────────────────────────────────────
@@ -308,7 +339,7 @@ p <- ggplot() +
   theme_classic(base_family = font_fam, base_size = 11) +
   theme(
     plot.background    = element_rect(fill = "white", color = NA),
-    panel.background   = element_rect(fill = "#EFF5FA", color = NA),
+    panel.background   = element_rect(fill = "#F8FBFD", color = NA),
     panel.border       = element_rect(color = "#333333", fill = NA, linewidth = 0.55),
     axis.line          = element_blank(),
     axis.ticks         = element_line(color = "#555555", linewidth = 0.3),
@@ -318,7 +349,7 @@ p <- ggplot() +
     # Legend: top-left, inside panel (clear of data points)
     legend.position      = c(0.10, 0.80),
     legend.justification = c(0, 1),
-    legend.background    = element_rect(fill = alpha("white", 0.88),
+    legend.background    = element_rect(fill = "white",
                                         color = "#AAAAAA", linewidth = 0.28),
     legend.title         = element_text(size = 9.5, face = "bold"),
     legend.text          = element_text(size = 9.0),
