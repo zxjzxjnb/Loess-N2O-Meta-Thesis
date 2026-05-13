@@ -1,5 +1,5 @@
-"crop","n","mean_N2O_kgN_ha","median_N2O_kgN_ha","sd_N2O_kgN_ha","min_N2O_kgN_ha","max_N2O_kgN_ha","cv_percent","letter_group","letter_test"
-"春玉米",148,1.86,1.715,1.044,0.32,4.95,56.1,"b","pairwise Wilcoxon rank-sum, BH adjusted"
-"冬小麦",25,0.894,0.85,0.331,0.36,1.48,37.1,"c","pairwise Wilcoxon rank-sum, BH adjusted"
-"春小麦",47,1.594,1.49,0.434,0.939,2.65,27.2,"b","pairwise Wilcoxon rank-sum, BH adjusted"
-"苹果园",33,2.895,2.1,2.198,0.945,8.89,75.9,"a","pairwise Wilcoxon rank-sum, BH adjusted"
+"crop","n","mean_N2O_kgN_ha","median_N2O_kgN_ha","sd_N2O_kgN_ha","min_N2O_kgN_ha","max_N2O_kgN_ha","cv_percent","letter_group","letter_test","kruskal_p"
+"春玉米",148,1.86,1.715,1.044,0.32,4.95,56.1,"b","pairwise Wilcoxon rank-sum, BH adjusted",1.872e-08
+"冬小麦",25,0.894,0.85,0.331,0.36,1.48,37.1,"c","pairwise Wilcoxon rank-sum, BH adjusted",1.872e-08
+"春小麦",47,1.594,1.49,0.434,0.939,2.65,27.2,"b","pairwise Wilcoxon rank-sum, BH adjusted",1.872e-08
+"苹果园",33,2.895,2.1,2.198,0.945,8.89,75.9,"a","pairwise Wilcoxon rank-sum, BH adjusted",1.872e-08

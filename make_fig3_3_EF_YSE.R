@@ -411,17 +411,11 @@ make_pairwise_center_tests <- function(df, metric_name) {
       } else {
         NA_real_
       }
-      p_t <- if (length(x1) > 1 && length(x2) > 1) {
-        suppressWarnings(t.test(x1, x2)$p.value)
-      } else {
-        NA_real_
-      }
       data.frame(
         metric = metric_name,
         group1 = g1,
         group2 = g2,
         p_wilcox = p_wilcox,
-        p_t_test = p_t,
         stringsAsFactors = FALSE
       )
     }))
@@ -439,35 +433,10 @@ make_pairwise_center_tests <- function(df, metric_name) {
     )
 }
 
-make_pairwise_ks <- function(df, metric_name) {
-  bind_rows(lapply(seq_len(length(crop_levels) - 1), function(i) {
-    bind_rows(lapply((i + 1):length(crop_levels), function(j) {
-      g1 <- crop_levels[i]
-      g2 <- crop_levels[j]
-      x1 <- df %>% filter(crop_cn == g1) %>% pull(value)
-      x2 <- df %>% filter(crop_cn == g2) %>% pull(value)
-      p_val <- if (length(x1) > 0 && length(x2) > 0) {
-        suppressWarnings(ks.test(x1, x2)$p.value)
-      } else {
-        NA_real_
-      }
-      data.frame(
-        metric = metric_name,
-        group1 = g1,
-        group2 = g2,
-        p_ks = p_val,
-        significant_0.05 = is.finite(p_val) && p_val < 0.05,
-        stringsAsFactors = FALSE
-      )
-    }))
-  }))
-}
-
 make_omnibus_tests <- function(df, metric_name) {
   data.frame(
     metric = metric_name,
     p_kruskal = suppressWarnings(kruskal.test(value ~ crop_cn, data = df)$p.value),
-    p_anova = suppressWarnings(summary(aov(value ~ crop_cn, data = df))[[1]][["Pr(>F)"]][1]),
     stringsAsFactors = FALSE
   )
 }
@@ -589,10 +558,6 @@ pairwise_center <- bind_rows(
   make_pairwise_center_tests(ef_dat, "EF"),
   make_pairwise_center_tests(yse_dat, "YSE")
 )
-pairwise_ks <- bind_rows(
-  make_pairwise_ks(ef_dat, "EF"),
-  make_pairwise_ks(yse_dat, "YSE")
-)
 omnibus_tests <- bind_rows(
   make_omnibus_tests(ef_dat, "EF"),
   make_omnibus_tests(yse_dat, "YSE")
@@ -625,7 +590,6 @@ tiff_file <- file.path(output_dir, "Fig3-3_EF_YSE_CN.tiff")
 derived_file <- file.path(output_dir, "Fig3-3_EF_YSE_derived_data.csv")
 summary_file <- file.path(output_dir, "Fig3-3_EF_YSE_summary.csv")
 pairwise_center_file <- file.path(output_dir, "Fig3-3_EF_YSE_pairwise_center_tests.csv")
-pairwise_ks_file <- file.path(output_dir, "Fig3-3_EF_YSE_pairwise_ks.csv")
 omnibus_file <- file.path(output_dir, "Fig3-3_EF_YSE_omnibus_tests.csv")
 control_audit_file <- file.path(output_dir, "Fig3-3_EF_control_matching_audit.csv")
 
@@ -681,7 +645,6 @@ summary_data <- bind_rows(ef_stat, yse_stat) %>%
   )
 write.csv(summary_data, summary_file, row.names = FALSE, fileEncoding = "UTF-8")
 write.csv(pairwise_center, pairwise_center_file, row.names = FALSE, fileEncoding = "UTF-8")
-write.csv(pairwise_ks, pairwise_ks_file, row.names = FALSE, fileEncoding = "UTF-8")
 write.csv(omnibus_tests, omnibus_file, row.names = FALSE, fileEncoding = "UTF-8")
 
 control_audit <- ef_candidates %>%
@@ -717,7 +680,6 @@ message("Output TIFF: ", tiff_file)
 message("Derived data: ", derived_file)
 message("Summary CSV : ", summary_file)
 message("Pairwise center tests: ", pairwise_center_file)
-message("Pairwise K-S: ", pairwise_ks_file)
 message("Omnibus tests: ", omnibus_file)
 message("Control audit: ", control_audit_file)
-print(summary_data)
+print(as.data.frame(summary_data))

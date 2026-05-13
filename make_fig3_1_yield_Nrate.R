@@ -277,25 +277,11 @@ stat_df <- dat_fert %>%
     .groups = "drop"
   )
 
-aov_fit <- aov(Yield ~ crop_cn, data = dat_fert)
-aov_p <- summary(aov_fit)[[1]][["Pr(>F)"]][1]
-tukey_table <- TukeyHSD(aov_fit, "crop_cn")$crop_cn
+kruskal_p <- suppressWarnings(kruskal.test(Yield ~ crop_cn, data = dat_fert)$p.value)
 
-make_tukey_letters <- function(groups, means, tukey_table, alpha = 0.05) {
+make_sig_letters <- function(groups, means, sig) {
   groups <- as.character(groups)
   means <- means[groups]
-  sig <- matrix(FALSE, length(groups), length(groups), dimnames = list(groups, groups))
-
-  if (!is.null(tukey_table) && nrow(tukey_table) > 0) {
-    for (rn in rownames(tukey_table)) {
-      pair <- strsplit(rn, "-", fixed = TRUE)[[1]]
-      if (length(pair) == 2 && all(pair %in% groups)) {
-        sig[pair[1], pair[2]] <- tukey_table[rn, "p adj"] < alpha
-        sig[pair[2], pair[1]] <- tukey_table[rn, "p adj"] < alpha
-      }
-    }
-  }
-
   ordered_groups <- groups[order(means[groups], decreasing = TRUE)]
   n_groups <- length(ordered_groups)
   pool <- letters[seq_len(max(n_groups, 1))]
@@ -342,11 +328,43 @@ make_tukey_letters <- function(groups, means, tukey_table, alpha = 0.05) {
   fallback[groups]
 }
 
+pairwise_center <- bind_rows(lapply(seq_len(length(crop_levels) - 1), function(i) {
+  bind_rows(lapply((i + 1):length(crop_levels), function(j) {
+    g1 <- crop_levels[i]
+    g2 <- crop_levels[j]
+    x1 <- dat_fert %>% filter(crop_cn == g1) %>% pull(Yield)
+    x2 <- dat_fert %>% filter(crop_cn == g2) %>% pull(Yield)
+    data.frame(
+      group1 = g1,
+      group2 = g2,
+      p_wilcox = suppressWarnings(wilcox.test(x1, x2, exact = FALSE)$p.value),
+      stringsAsFactors = FALSE
+    )
+  }))
+})) %>%
+  mutate(
+    p_wilcox_BH = p.adjust(p_wilcox, method = "BH"),
+    significant_center_0.05 = is.finite(p_wilcox_BH) & p_wilcox_BH < 0.05,
+    center_test = "pairwise Wilcoxon rank-sum, BH adjusted"
+  )
+
+center_sig <- matrix(FALSE, length(crop_levels), length(crop_levels),
+                     dimnames = list(crop_levels, crop_levels))
+
+for (ii in seq_len(nrow(pairwise_center))) {
+  g1 <- pairwise_center$group1[ii]
+  g2 <- pairwise_center$group2[ii]
+  is_sig <- isTRUE(pairwise_center$significant_center_0.05[ii])
+  center_sig[g1, g2] <- is_sig
+  center_sig[g2, g1] <- is_sig
+}
+
 means_named <- setNames(stat_df$mean, as.character(stat_df$crop_cn))
-tukey_letters <- make_tukey_letters(crop_levels, means_named, tukey_table)
+center_letters <- make_sig_letters(crop_levels, means_named, center_sig)
 stat_df <- stat_df %>%
   mutate(
-    tukey_group = unname(tukey_letters[as.character(crop_cn)]),
+    letter_group = unname(center_letters[as.character(crop_cn)]),
+    letter_test = "pairwise Wilcoxon rank-sum, BH adjusted",
     label_y = pmin(ymax + 0.75, ymax_panel - 0.7)
   )
 
@@ -371,7 +389,7 @@ pB <- ggplot(dat_fert, aes(crop_cn, Yield, fill = crop_cn, color = crop_cn)) +
   ) +
   geom_text(
     data = stat_df,
-    aes(x = crop_cn, y = label_y, label = tukey_group),
+    aes(x = crop_cn, y = label_y, label = letter_group),
     inherit.aes = FALSE, family = font_fam, size = 3.15,
     fontface = "bold", color = "#222222"
   ) +
@@ -379,9 +397,9 @@ pB <- ggplot(dat_fert, aes(crop_cn, Yield, fill = crop_cn, color = crop_cn)) +
     "text",
     x = 2, y = ymax_panel * 0.98,
     hjust = 0.5, vjust = 1,
-    label = ifelse(aov_p < 0.001,
-                   "ANOVA: p < 0.001",
-                   sprintf("ANOVA: p = %.3f", aov_p)),
+    label = ifelse(kruskal_p < 0.001,
+                   "Kruskal-Wallis: p < 0.001",
+                   sprintf("Kruskal-Wallis: p = %.3f", kruskal_p)),
     family = font_fam, size = 2.95, color = "#222222"
   ) +
   scale_fill_manual(values = COLORS, guide = "none") +
@@ -413,6 +431,7 @@ png_file  <- file.path(output_dir, "Fig3-1_yield_Nrate_CN.png")
 tiff_file <- file.path(output_dir, "Fig3-1_yield_Nrate_CN.tiff")
 csv_file  <- file.path(output_dir, "Fig3-1_quadratic_fit_summary.csv")
 box_csv_file <- file.path(output_dir, "Fig3-1_boxplot_summary.csv")
+pairwise_center_file <- file.path(output_dir, "Fig3-1_boxplot_pairwise_center_tests.csv")
 
 png(filename = png_file, width = 190, height = 110, units = "mm",
     res = 600, type = device_type, bg = "white")
@@ -447,15 +466,18 @@ box_summary <- stat_df %>%
     mean_yield_t_ha = round(mean, 3),
     median_yield_t_ha = round(median, 3),
     sd_yield_t_ha = round(sd, 3),
-    tukey_group,
-    anova_p = signif(aov_p, 4)
+    letter_group,
+    letter_test,
+    kruskal_p = signif(kruskal_p, 4)
   )
 write.csv(box_summary, box_csv_file, row.names = FALSE, fileEncoding = "UTF-8")
+write.csv(pairwise_center, pairwise_center_file, row.names = FALSE, fileEncoding = "UTF-8")
 
 message("Chinese font: ", font_path)
 message("Output PNG : ", png_file)
 message("Output TIFF: ", tiff_file)
 message("Fit summary: ", csv_file)
 message("Box summary: ", box_csv_file)
+message("Pairwise center tests: ", pairwise_center_file)
 print(fit_summary)
-print(box_summary)
+print(as.data.frame(box_summary))

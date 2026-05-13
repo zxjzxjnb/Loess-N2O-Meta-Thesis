@@ -1,4 +1,4 @@
-"crop","n","mean_yield_t_ha","median_yield_t_ha","sd_yield_t_ha","tukey_group","anova_p"
-"春玉米",138,11.057,11.017,3.857,"a",1.219e-41
-"冬小麦",18,5.424,5.318,0.761,"b",1.219e-41
-"春小麦",45,1.521,1.429,0.331,"c",1.219e-41
+"crop","n","mean_yield_t_ha","median_yield_t_ha","sd_yield_t_ha","letter_group","letter_test","kruskal_p"
+"春玉米",138,11.057,11.017,3.857,"a","pairwise Wilcoxon rank-sum, BH adjusted",1.261e-27
+"冬小麦",18,5.424,5.318,0.761,"b","pairwise Wilcoxon rank-sum, BH adjusted",1.261e-27
+"春小麦",45,1.521,1.429,0.331,"c","pairwise Wilcoxon rank-sum, BH adjusted",1.261e-27

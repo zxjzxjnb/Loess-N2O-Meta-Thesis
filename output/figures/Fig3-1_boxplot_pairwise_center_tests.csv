@@ -1,0 +1,4 @@
+"group1","group2","p_wilcox","p_wilcox_BH","significant_center_0.05","center_test"
+"春玉米","冬小麦",1.19990073751731e-08,1.19990073751731e-08,TRUE,"pairwise Wilcoxon rank-sum, BH adjusted"
+"春玉米","春小麦",8.23399381326077e-24,2.47019814397823e-23,TRUE,"pairwise Wilcoxon rank-sum, BH adjusted"
+"冬小麦","春小麦",7.53180057888772e-10,1.12977008683316e-09,TRUE,"pairwise Wilcoxon rank-sum, BH adjusted"

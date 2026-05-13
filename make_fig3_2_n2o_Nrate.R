@@ -340,7 +340,6 @@ pairwise_center <- bind_rows(lapply(seq_len(length(crop_levels) - 1), function(i
       group1 = g1,
       group2 = g2,
       p_wilcox = suppressWarnings(wilcox.test(x1, x2, exact = FALSE)$p.value),
-      p_t_test = suppressWarnings(t.test(x1, x2)$p.value),
       stringsAsFactors = FALSE
     )
   }))
@@ -350,6 +349,12 @@ pairwise_center <- bind_rows(lapply(seq_len(length(crop_levels) - 1), function(i
     significant_center_0.05 = is.finite(p_wilcox_BH) & p_wilcox_BH < 0.05,
     center_test = "pairwise Wilcoxon rank-sum, BH adjusted"
   )
+
+omnibus_tests <- data.frame(
+  metric = "N2O",
+  p_kruskal = suppressWarnings(kruskal.test(N2O ~ crop_cn, data = dat_fert)$p.value),
+  stringsAsFactors = FALSE
+)
 
 center_sig <- matrix(FALSE, length(crop_levels), length(crop_levels),
                      dimnames = list(crop_levels, crop_levels))
@@ -432,6 +437,7 @@ tiff_file <- file.path(output_dir, "Fig3-2_N2O_Nrate_CN.tiff")
 csv_file  <- file.path(output_dir, "Fig3-2_linear_fit_summary.csv")
 box_csv_file <- file.path(output_dir, "Fig3-2_boxplot_summary.csv")
 pairwise_center_file <- file.path(output_dir, "Fig3-2_boxplot_pairwise_center_tests.csv")
+omnibus_file <- file.path(output_dir, "Fig3-2_boxplot_omnibus_tests.csv")
 
 png(filename = png_file, width = 190, height = 110, units = "mm",
     res = 600, type = device_type, bg = "white")
@@ -468,10 +474,12 @@ box_summary <- stat_df %>%
     max_N2O_kgN_ha = round(max, 3),
     cv_percent = round(cv_percent, 1),
     letter_group,
-    letter_test
+    letter_test,
+    kruskal_p = signif(omnibus_tests$p_kruskal[1], 4)
   )
 write.csv(box_summary, box_csv_file, row.names = FALSE, fileEncoding = "UTF-8")
 write.csv(pairwise_center, pairwise_center_file, row.names = FALSE, fileEncoding = "UTF-8")
+write.csv(omnibus_tests, omnibus_file, row.names = FALSE, fileEncoding = "UTF-8")
 
 message("Chinese font: ", font_path)
 message("Output PNG : ", png_file)
@@ -479,5 +487,6 @@ message("Output TIFF: ", tiff_file)
 message("Fit summary: ", csv_file)
 message("Box summary: ", box_csv_file)
 message("Pairwise center tests: ", pairwise_center_file)
+message("Omnibus tests: ", omnibus_file)
 print(fit_summary)
-print(box_summary)
+print(as.data.frame(box_summary))

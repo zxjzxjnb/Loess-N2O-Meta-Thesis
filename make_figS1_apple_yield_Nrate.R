@@ -8,8 +8,7 @@ local_lib   <- file.path(project_dir, "Rlib")
 if (dir.exists(local_lib)) .libPaths(c(local_lib, .libPaths()))
 
 required_packages <- c(
-  "readxl", "dplyr", "tidyr", "ggplot2", "scales", "grid",
-  "showtext", "sysfonts"
+  "readxl", "dplyr", "tidyr", "ggplot2", "scales", "grid"
 )
 missing_packages <- required_packages[
   !vapply(required_packages, requireNamespace, logical(1), quietly = TRUE)
@@ -25,8 +24,6 @@ suppressPackageStartupMessages({
   library(ggplot2)
   library(scales)
   library(grid)
-  library(showtext)
-  library(sysfonts)
 })
 
 # Config -----------------------------------------------------------------------
@@ -34,24 +31,10 @@ input_xlsx <- file.path(project_dir, "TableS1.xlsx")
 output_dir <- file.path(project_dir, "output", "figures")
 dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 
-font_candidates <- c(
-  "/Library/Fonts/Arial Unicode.ttf",
-  "/System/Library/Fonts/Supplemental/Arial Unicode.ttf",
-  "/System/Library/Fonts/STHeiti Medium.ttc",
-  "/System/Library/Fonts/Supplemental/Songti.ttc"
-)
-font_path <- font_candidates[file.exists(font_candidates)][1]
-if (is.na(font_path)) {
-  stop("No usable Chinese font found. Checked: ", paste(font_candidates, collapse = ", "),
-       call. = FALSE)
-}
-font_fam <- "figS1_cn"
-sysfonts::font_add(family = font_fam, regular = font_path)
-showtext::showtext_auto(enable = TRUE)
-showtext::showtext_opts(dpi = 600)
+font_fam <- if (Sys.info()[["sysname"]] == "Darwin") "Arial Unicode MS" else "sans"
 
 device_type <- if (Sys.info()[["sysname"]] == "Darwin" &&
-                   isTRUE(capabilities("aqua"))) "quartz" else getOption("bitmapType", "cairo")
+                   isTRUE(capabilities("aqua"))) "quartz" else "cairo"
 
 set_file_dpi <- function(path, dpi = 600) {
   if (Sys.info()[["sysname"]] != "Darwin") return(invisible(FALSE))
@@ -142,15 +125,9 @@ curve_df <- {
   )
 }
 
-annot_label <- sprintf(
-  "n = %d\nR² = %.3f\np(二次项) %s",
-  nrow(dat), fit_stats$r.squared, fmt_p_value(p_quadratic)
-)
-
 # Aesthetics -------------------------------------------------------------------
 apple_col <- "#1B9E77"
 apple_dark <- "#0E6F5C"
-apple_light <- "#BFE4DA"
 
 theme_figS1 <- function() {
   theme_classic(base_family = font_fam, base_size = 9.4) +
@@ -168,16 +145,6 @@ theme_figS1 <- function() {
 }
 
 fig <- ggplot() +
-  geom_ribbon(
-    data = curve_df,
-    aes(N_rate, ymin = lwr, ymax = upr),
-    fill = apple_light, alpha = 0.45, color = NA
-  ) +
-  geom_line(
-    data = curve_df,
-    aes(N_rate, fit),
-    color = apple_dark, linewidth = 0.78
-  ) +
   geom_point(
     data = dat,
     aes(N_rate_plot, Yield),
@@ -194,17 +161,6 @@ fig <- ggplot() +
     aes(N_rate, mean_yield_t_ha),
     shape = 23, size = 3.15, stroke = 0.58,
     color = apple_dark, fill = "white"
-  ) +
-  annotate(
-    "rect",
-    xmin = 730, xmax = 1035, ymin = 78, ymax = 97.5,
-    fill = alpha("white", 0.88), color = NA
-  ) +
-  annotate(
-    "text",
-    x = 1018, y = 95.5, label = annot_label,
-    hjust = 1, vjust = 1, family = font_fam,
-    size = 3.0, color = "#222222", lineheight = 1.02
   ) +
   scale_x_continuous(
     limits = c(0, 1050),
@@ -269,7 +225,7 @@ by_n_export <- by_n_summary %>%
   )
 write.csv(by_n_export, by_n_csv_file, row.names = FALSE, fileEncoding = "UTF-8")
 
-message("Chinese font: ", font_path)
+message("Chinese font family: ", font_fam)
 message("Output PNG : ", png_file)
 message("Output TIFF: ", tiff_file)
 message("Fit summary: ", fit_csv_file)
