@@ -1,6 +1,6 @@
 #!/usr/bin/env Rscript
 
-# Export manuscript figures as vector graphics without changing the original
+# Export manuscript figures as PDF vector graphics without changing the original
 # PNG/TIFF figure-generation scripts.
 
 project_dir <- normalizePath(getwd())
@@ -23,7 +23,7 @@ figures <- data.frame(
   ),
   plot_object = c("p", "fig", "fig", "fig", "fig", "fig", "fig"),
   width_mm = c(190, 190, 190, 145, 210, 210, 95),
-  height_mm = c(140, 110, 110, 178, 165, 165, 80),
+  height_mm = c(140, 110, 110, 178, 175, 175, 80),
   base_name = c(
     "Fig2-1_site_distribution_CN",
     "Fig3-1_yield_Nrate_CN",
@@ -51,25 +51,7 @@ save_pdf <- function(fig, file, width_mm, height_mm) {
   print(fig)
 }
 
-save_eps <- function(fig, file, width_mm, height_mm) {
-  grDevices::postscript(
-    file = file,
-    width = mm_to_in(width_mm),
-    height = mm_to_in(height_mm),
-    onefile = FALSE,
-    horizontal = FALSE,
-    paper = "special",
-    bg = "white"
-  )
-  on.exit(grDevices::dev.off(), add = TRUE)
-  print(fig)
-}
-
 saved <- character()
-pdftocairo <- Sys.which("pdftocairo")
-if (!nzchar(pdftocairo)) {
-  warning("pdftocairo was not found; SVG files will not be generated.")
-}
 
 for (i in seq_len(nrow(figures))) {
   spec <- figures[i, ]
@@ -88,29 +70,16 @@ for (i in seq_len(nrow(figures))) {
 
   fig <- get(spec$plot_object, envir = env, inherits = FALSE)
   pdf_file <- file.path(output_dir, paste0(spec$base_name, ".pdf"))
-  eps_file <- file.path(output_dir, paste0(spec$base_name, ".eps"))
-  svg_file <- file.path(output_dir, paste0(spec$base_name, ".svg"))
 
   save_pdf(fig, pdf_file, spec$width_mm, spec$height_mm)
-  save_eps(fig, eps_file, spec$width_mm, spec$height_mm)
-  if (nzchar(pdftocairo)) {
-    status <- system2(pdftocairo, c("-svg", pdf_file, svg_file))
-    if (!identical(status, 0L) && !is.null(status)) {
-      warning("Failed to convert SVG: ", svg_file)
-    }
-  }
-  saved <- c(saved, pdf_file, eps_file, svg_file)
+  saved <- c(saved, pdf_file)
 
   if (identical(spec$label, "Fig3-6/S1")) {
     s1_pdf <- file.path(output_dir, "FigS1_apple_yield_Nrate_CN.pdf")
-    s1_eps <- file.path(output_dir, "FigS1_apple_yield_Nrate_CN.eps")
-    s1_svg <- file.path(output_dir, "FigS1_apple_yield_Nrate_CN.svg")
     file.copy(pdf_file, s1_pdf, overwrite = TRUE)
-    file.copy(eps_file, s1_eps, overwrite = TRUE)
-    file.copy(svg_file, s1_svg, overwrite = TRUE)
-    saved <- c(saved, s1_pdf, s1_eps, s1_svg)
+    saved <- c(saved, s1_pdf)
   }
 }
 
-message("Vector figures written to: ", output_dir)
+message("PDF figures written to: ", output_dir)
 message(paste(saved, collapse = "\n"))

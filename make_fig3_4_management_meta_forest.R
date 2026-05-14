@@ -757,7 +757,7 @@ plot_data <- summary_data %>%
   )
 
 theme_fig34 <- function() {
-  theme_classic(base_family = font_fam, base_size = 9.2) +
+  theme_classic(base_family = font_fam, base_size = 12.0) +
     theme(
       plot.background   = element_rect(fill = "white", color = NA),
       panel.background  = element_rect(fill = "white", color = NA),
@@ -765,10 +765,10 @@ theme_fig34 <- function() {
       axis.line         = element_blank(),
       axis.ticks        = element_line(color = "#555555", linewidth = 0.25),
       axis.ticks.length = unit(0.10, "cm"),
-      axis.text         = element_text(size = 8.0, color = "#222222"),
-      axis.title        = element_text(size = 8.5, color = "#222222"),
-      plot.tag          = element_text(face = "bold", size = 10.5),
-      plot.margin       = margin(5, 30, 5, 6)
+      axis.text         = element_text(size = 10.8, color = "#222222"),
+      axis.title        = element_text(size = 11.6, color = "#222222"),
+      plot.tag          = element_text(face = "bold", size = 16.0),
+      plot.margin       = margin(6, 32, 6, 7)
     )
 }
 
@@ -790,7 +790,7 @@ make_panel <- function(metric_name, tag, panel_title, x_lab, show_y_labels = FAL
     mutate(y = match(as.character(measure_label), rev(panel_levels)))
   lim <- axis_limits(df)
   span <- lim[2] - lim[1]
-  label_x <- lim[2] + span * 0.08
+  label_x <- lim[2] + span * 0.04
   full_y <- data.frame(
     y = seq_along(panel_levels),
     label = plot_labels[rev(panel_levels)]
@@ -805,7 +805,7 @@ make_panel <- function(metric_name, tag, panel_title, x_lab, show_y_labels = FAL
                aes(x = effect, fill = sig_class, shape = row_type),
                size = 2.5, stroke = 0.45, color = "#222222") +
     geom_text(aes(x = label_x, label = value_label),
-              hjust = 0, family = font_fam, size = 2.15, color = "#222222") +
+              hjust = 0, family = font_fam, size = 3.05, color = "#222222") +
     scale_shape_manual(values = c("总体" = 23, "亚组" = 21), guide = "none") +
     scale_color_manual(values = c("显著降低" = "#2166AC",
                                   "显著增加" = "#D6604D",
@@ -822,17 +822,17 @@ make_panel <- function(metric_name, tag, panel_title, x_lab, show_y_labels = FAL
       expand = expansion(mult = c(0, 0))
     ) +
     scale_x_continuous(
-      limits = c(lim[1], label_x + span * 0.75),
-      breaks = pretty(lim, n = 5),
+      limits = c(lim[1], label_x + span * 1.05),
+      breaks = pretty(lim, n = 4),
       expand = expansion(mult = c(0, 0))
     ) +
     labs(title = panel_title, x = x_lab, y = NULL, tag = tag) +
     coord_cartesian(clip = "off") +
     theme_fig34() +
     theme(
-      plot.title = element_text(size = 8.8, face = "bold", hjust = 0.5,
-                                margin = margin(0, 0, 4, 0)),
-      axis.text.y = element_text(size = 8.2, hjust = 1, lineheight = 0.95),
+      plot.title = element_text(size = 13.0, face = "bold", hjust = 0.5,
+                                margin = margin(0, 0, 6, 0)),
+      axis.text.y = element_text(size = 11.4, hjust = 1, lineheight = 0.95),
       plot.tag.position = c(0.018, 0.985)
     )
 }
@@ -846,8 +846,8 @@ fig <- (p_n2o | p_yld) / (p_yse | p_ef) +
   plot_annotation(
     title = "管理措施对N₂O排放量、作物产量、YSE和EF的Meta分析森林图",
     theme = theme(
-      plot.title = element_text(family = font_fam, size = 11.2, face = "bold",
-                                hjust = 0.5, margin = margin(0, 0, 4, 0))
+      plot.title = element_text(family = font_fam, size = 16.2, face = "bold",
+                                hjust = 0.5, margin = margin(0, 0, 7, 0))
     )
   )
 
@@ -858,13 +858,13 @@ pairs_file <- file.path(output_dir, "Fig3-4_management_meta_pairs.csv")
 summary_file <- file.path(output_dir, "Fig3-4_management_meta_summary.csv")
 unmatched_file <- file.path(output_dir, "Fig3-4_management_meta_unmatched.csv")
 
-png(filename = png_file, width = 210, height = 165, units = "mm",
+png(filename = png_file, width = 210, height = 175, units = "mm",
     res = 600, type = device_type, bg = "white")
 print(fig)
 dev.off()
 set_file_dpi(png_file, 600)
 
-tiff(filename = tiff_file, width = 210, height = 165, units = "mm",
+tiff(filename = tiff_file, width = 210, height = 175, units = "mm",
      res = 600, type = device_type, bg = "white")
 print(fig)
 dev.off()
@@ -898,4 +898,8 @@ message("Output TIFF: ", tiff_file)
 message("Pairs CSV  : ", pairs_file)
 message("Summary CSV: ", summary_file)
 message("Unmatched  : ", unmatched_file)
-print(summary_out)
+if (interactive()) {
+  print(summary_out)
+} else {
+  message("Summary rows: ", nrow(summary_out))
+}
