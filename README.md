@@ -12,5 +12,4 @@
 - `data/`: 输入数据与地理边界文件。
 - `output/doc/`: 修订后的文档输出。
 - `output/figures/`: 论文图件、统计汇总和导出数据。
-- `output/manuscript_vector_figures/`: 投稿或排版用矢量图。
-- `Archive/`: 本地备份归档目录，已加入 `.gitignore`，不再推送到 GitHub。
+- `output/manuscript_vector_figures/`: 排版用矢量图。
