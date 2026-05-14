@@ -20,8 +20,8 @@ import pandas as pd
 from PIL import Image, ImageDraw, ImageFont
 
 
-PROJECT_DIR = Path(__file__).resolve().parent
-TABLE_FILE = PROJECT_DIR / "TableS1.xlsx"
+PROJECT_DIR = Path(__file__).resolve().parents[1]
+TABLE_FILE = PROJECT_DIR / "data" / "tables" / "TableS1.xlsx"
 OUT_DIR = PROJECT_DIR / "output" / "figures"
 STRICT_PAIRS_FILE = OUT_DIR / "Fig3-5_N_reduction_meta_pairs.csv"
 SUMMARY_FILE = OUT_DIR / "Fig3-5_N_reduction_meta_summary.csv"

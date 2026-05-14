@@ -24,8 +24,8 @@ import pandas as pd
 from PIL import Image, ImageDraw, ImageFont
 
 
-PROJECT_DIR = Path(__file__).resolve().parent
-INPUT_XLSX = PROJECT_DIR / "TableS1.xlsx"
+PROJECT_DIR = Path(__file__).resolve().parents[1]
+INPUT_XLSX = PROJECT_DIR / "data" / "tables" / "TableS1.xlsx"
 OUTPUT_DIR = PROJECT_DIR / "output" / "figures"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 

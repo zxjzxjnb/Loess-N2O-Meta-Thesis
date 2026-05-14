@@ -24,7 +24,7 @@ suppressPackageStartupMessages({
 })
 
 # ── Config ────────────────────────────────────────────────────────────────────
-input_xlsx    <- file.path(project_dir, "TableS1.xlsx")
+input_xlsx    <- file.path(project_dir, "data", "tables", "TableS1.xlsx")
 output_dir    <- file.path(project_dir, "output", "figures")
 include_potato <- TRUE
 device_type <- if (Sys.info()[["sysname"]] == "Darwin" && capabilities("aqua")) "quartz" else "cairo"

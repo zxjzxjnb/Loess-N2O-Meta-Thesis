@@ -13,13 +13,13 @@ dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 figures <- data.frame(
   label = c("Fig2-1", "Fig3-1", "Fig3-2", "Fig3-3", "Fig3-4", "Fig3-5", "Fig3-6/S1"),
   script = c(
-    "make_fig2_1_site_distribution.R",
-    "make_fig3_1_yield_Nrate.R",
-    "make_fig3_2_n2o_Nrate.R",
-    "make_fig3_3_EF_YSE.R",
-    "make_fig3_4_management_meta_forest.R",
-    "make_fig3_5_n_reduction_meta_forest.R",
-    "make_figS1_apple_yield_Nrate.R"
+    "scripts/make_fig2_1_site_distribution.R",
+    "scripts/make_fig3_1_yield_Nrate.R",
+    "scripts/make_fig3_2_n2o_Nrate.R",
+    "scripts/make_fig3_3_EF_YSE.R",
+    "scripts/make_fig3_4_management_meta_forest.R",
+    "scripts/make_fig3_5_n_reduction_meta_forest.R",
+    "scripts/make_figS1_apple_yield_Nrate.R"
   ),
   plot_object = c("p", "fig", "fig", "fig", "fig", "fig", "fig"),
   width_mm = c(190, 190, 190, 145, 210, 210, 95),
