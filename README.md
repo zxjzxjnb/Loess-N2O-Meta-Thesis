@@ -1,27 +1,24 @@
 # Loess N2O Meta Thesis
 
-本仓库是“黄土高原农田/果园 N2O 排放 meta 分析”的研究复现包，包含论文正文、原始整理表、地理边界、图表复现脚本、统计汇总表、配对审计表和投稿排版用矢量图。
+本仓库是“黄土高原农田/果园 N2O 排放 meta 分析”的 GitHub 复现包，包含核心数据表、地理边界、图表复现脚本、已生成图件、统计汇总表、配对审计表和投稿排版用矢量图。希望能够帮助课题组复核本论文结果，并且其中的数据清洗、处理-对照匹配、meta分析、图件导出流程可供后续类似研究参考。
 
-它的主要用途不是作为通用软件包发布，而是帮助导师和课题组复核本论文结果，并把其中的数据清洗、处理-对照匹配、meta 分析、图件导出流程迁移到后续类似研究中。
-
-## 交付价值
+## Advantages
 
 - 结果可复核：从 `data/tables/TableS1.xlsx` 到论文图件、统计汇总和矢量图的关键步骤都保留在脚本中。
 - 方法可迁移：管理措施分类、减氮处理配对、EF/YSE 计算、对照匹配审计等流程可复用于其他农业生态 meta 分析。
-- 图件可再生成：中文 PNG/TIFF 图件和投稿用 PDF/SVG/EPS 矢量图均可由脚本重新导出。
+- 图件可再生成：中文 PNG 图件、统计 CSV 和投稿用 PDF/SVG/EPS 矢量图均可由脚本重新导出。
 - 审计痕迹完整：关键图件同时输出 summary、pairwise tests、pairs、unmatched、control matching audit 等 CSV，便于组内复核或回应审稿问题。
 
 ## Project Structure
 
-- `docs/manuscript/`: 当前毕业论文正文和英文稿件。
-- `docs/references/`: 学校格式模板、撰写规范和参考文献著录规则。
-- `docs/tables/`: Word 版表格文件。
+以下为GitHub仓库的主要内容：
+
 - `data/tables/`: 作图和 meta 分析输入表，核心文件为 `TableS1.xlsx`。
 - `data/geo/`: 地理边界文件，例如黄土高原边界 `LoessPlateauRegion.kmz`。
 - `scripts/`: 图表、统计汇总和 meta 分析复现脚本。
-- `output/doc/`: 修订后的文档输出。
 - `output/figures/`: 论文图件、统计汇总、派生数据和审计 CSV。
 - `output/manuscript_vector_figures/`: 排版用 PDF/SVG/EPS 矢量图。
+- `loess_n2o_meta.Rproj`: RStudio 项目文件。
 
 ## Environment
 
@@ -73,7 +70,7 @@ python scripts/make_fig2_1_site_distribution_refined.py
 | Script | Main output | Purpose |
 | --- | --- | --- |
 | `scripts/make_fig2_1_site_distribution.R` | `Fig2-1_site_distribution_CN.png`, `Fig2-1_site_points_used.csv` | 黄土高原研究点空间分布图。 |
-| `scripts/make_fig2_1_site_distribution_refined.py` | `Fig2-1_site_distribution_CN.png`, `Fig2-1_site_distribution_CN.tiff` | Python/Pillow 版本站点分布图，适合在 R 地图环境不可用时复现。 |
+| `scripts/make_fig2_1_site_distribution_refined.py` | `Fig2-1_site_distribution_CN.png` | Python/Pillow 版本站点分布图，适合在 R 地图环境不可用时复现。 |
 | `scripts/make_fig3_1_yield_Nrate.R` | `Fig3-1_yield_Nrate_CN.png`, `Fig3-1_quadratic_fit_summary.csv` | 施氮量与作物产量关系及分组统计。 |
 | `scripts/make_fig3_2_n2o_Nrate.R` | `Fig3-2_N2O_Nrate_CN.png`, `Fig3-2_linear_fit_summary.csv` | 施氮量与 N2O 排放关系及分组统计。 |
 | `scripts/make_fig3_3_EF_YSE.R` | `Fig3-3_EF_YSE_CN.png`, `Fig3-3_EF_YSE_derived_data.csv`, `Fig3-3_EF_control_matching_audit.csv` | EF 和单位产量 N2O 排放量计算，含对照匹配审计。 |
@@ -93,7 +90,7 @@ python scripts/make_fig2_1_site_distribution_refined.py
 - `Fig3-3_EF_control_matching_audit.csv`: EF 计算时每条施肥处理如何匹配对照，或为什么未匹配。
 - `Fig3-4_management_meta_unmatched.csv`: 管理措施 meta 分析中未能构造有效配对的记录。
 
-`output/manuscript_vector_figures/` 中的 PDF/SVG/EPS 文件用于 Word、论文排版或期刊投稿系统。
+`output/manuscript_vector_figures/` 中的 PDF/SVG/EPS 文件用于 Word、论文排版或期刊投稿系统，并作为 GitHub 复现包的一部分保留。
 
 ## 可迁移流程
 
@@ -125,4 +122,3 @@ python scripts/make_fig2_1_site_distribution_refined.py
 - `TableS1.xlsx` 是核心输入表；若表头、列名或合并单元格结构改变，需要同步修改读取和清洗代码。
 - 字体路径依赖本机中文字体配置；如果图中文字无法正常显示，需要调整各脚本中的字体设置。
 - `output/figures/` 和 `output/manuscript_vector_figures/` 中的结果文件可以重新生成，但在正式交付或投稿前应确认当前版本是否为最终论文口径。
-- `.Rproj.user/`、`tmp/`、`Archive/`、`.claude/` 等本地工作目录通常不需要交给课题组，交付时可只保留 `README.md`、`data/`、`docs/`、`scripts/`、`output/` 和 `loess_n2o_meta.Rproj`。
