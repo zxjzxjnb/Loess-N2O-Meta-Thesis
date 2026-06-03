@@ -51,6 +51,26 @@ save_pdf <- function(fig, file, width_mm, height_mm) {
   print(fig)
 }
 
+convert_pdf <- function(pdf_file, out_file, type) {
+  pdftocairo <- Sys.which("pdftocairo")
+  if (!nzchar(pdftocairo)) {
+    warning("pdftocairo not found; skipping ", type, " export for ", pdf_file, call. = FALSE)
+    return(FALSE)
+  }
+
+  args <- c(paste0("-", type))
+  if (identical(type, "svg")) {
+    args <- c(args, "-origpagesizes")
+  }
+  args <- c(args, pdf_file, out_file)
+  status <- system2(pdftocairo, args)
+  if (!identical(status, 0L)) {
+    warning("pdftocairo failed for ", out_file, call. = FALSE)
+    return(FALSE)
+  }
+  TRUE
+}
+
 saved <- character()
 
 for (i in seq_len(nrow(figures))) {
@@ -70,16 +90,24 @@ for (i in seq_len(nrow(figures))) {
 
   fig <- get(spec$plot_object, envir = env, inherits = FALSE)
   pdf_file <- file.path(output_dir, paste0(spec$base_name, ".pdf"))
+  svg_file <- file.path(output_dir, paste0(spec$base_name, ".svg"))
+  eps_file <- file.path(output_dir, paste0(spec$base_name, ".eps"))
 
   save_pdf(fig, pdf_file, spec$width_mm, spec$height_mm)
   saved <- c(saved, pdf_file)
+  if (convert_pdf(pdf_file, svg_file, "svg")) saved <- c(saved, svg_file)
+  if (convert_pdf(pdf_file, eps_file, "eps")) saved <- c(saved, eps_file)
 
   if (identical(spec$label, "Fig3-6/S1")) {
     s1_pdf <- file.path(output_dir, "FigS1_apple_yield_Nrate_CN.pdf")
+    s1_svg <- file.path(output_dir, "FigS1_apple_yield_Nrate_CN.svg")
+    s1_eps <- file.path(output_dir, "FigS1_apple_yield_Nrate_CN.eps")
     file.copy(pdf_file, s1_pdf, overwrite = TRUE)
-    saved <- c(saved, s1_pdf)
+    file.copy(svg_file, s1_svg, overwrite = TRUE)
+    file.copy(eps_file, s1_eps, overwrite = TRUE)
+    saved <- c(saved, s1_pdf, s1_svg, s1_eps)
   }
 }
 
-message("PDF figures written to: ", output_dir)
+message("Vector figures written to: ", output_dir)
 message(paste(saved, collapse = "\n"))

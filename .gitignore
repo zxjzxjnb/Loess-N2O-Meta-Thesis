@@ -27,5 +27,15 @@ tmp/
 Archive/
 archive/
 
+# Local manuscript/document deliverables
+docs/manuscript/
+docs/references/
+docs/tables/*.docx
+output/doc/
+outputs/
+references/
+/*.docx
+/*.pdf
+
 # Word temporary lock files
 ~$*

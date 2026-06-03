@@ -277,7 +277,7 @@ yse_dat <- dat %>%
     control_match = NA_character_,
     value = N2O / Yield,
     metric = "YSE",
-    metric_label = "产量尺度N₂O排放 (kg N t⁻¹)",
+    metric_label = "N₂O单位产量排放量 (kg N t⁻¹)",
     x_pos = as.numeric(crop_cn)
   )
 
@@ -576,7 +576,7 @@ pA <- plot_metric(
 
 pB <- plot_metric(
   yse_dat, yse_stat,
-  y_label = "产量尺度N₂O排放 (kg N t⁻¹)",
+  y_label = "N₂O单位产量排放量 (kg N t⁻¹)",
   tag = "(b)",
   y_limits = yse_limits,
   zero_line = FALSE

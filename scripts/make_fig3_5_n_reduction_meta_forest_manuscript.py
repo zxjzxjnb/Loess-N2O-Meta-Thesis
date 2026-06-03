@@ -466,7 +466,7 @@ def draw_forest(summary: pd.DataFrame) -> None:
     panels = [
         ("N2O", "(a)", "N₂O排放量", "变化率 (%)"),
         ("Yield", "(b)", "作物产量", "变化率 (%)"),
-        ("YSE", "(c)", "产量尺度N₂O排放", "变化率 (%)"),
+        ("YSE", "(c)", "N₂O单位产量排放量", "变化率 (%)"),
         ("EF", "(d)", "EF", "Hedges' d"),
     ]
     colors = {"decrease": "#2166AC", "increase": "#D6604D", "ns": "#666666"}

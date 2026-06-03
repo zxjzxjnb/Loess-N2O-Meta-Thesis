@@ -562,7 +562,7 @@ effect_rows <- lapply(seq_len(nrow(pairs)), function(i) {
   tibble::tibble(
     pair_key = p$pair_key,
     metric = c("N2O", "Yield", "YSE", "EF"),
-    metric_label = c("N₂O排放量", "作物产量", "产量尺度N₂O排放", "EF"),
+    metric_label = c("N₂O排放量", "作物产量", "N₂O单位产量排放量", "EF"),
     effect_type = c("lnRR", "lnRR", "lnRR", "Hedges_d"),
     yi = c(n2o[["yi"]], yield[["yi"]], yse[["yi"]], ef[["yi"]]),
     vi = c(n2o[["vi"]], yield[["vi"]], yse[["vi"]], ef[["vi"]])
@@ -678,7 +678,7 @@ set.seed(20260428)
 
 metric_specs <- tibble::tibble(
   metric = c("N2O", "Yield", "YSE", "EF"),
-  metric_label = c("N₂O排放量", "作物产量", "产量尺度N₂O排放", "EF"),
+  metric_label = c("N₂O排放量", "作物产量", "N₂O单位产量排放量", "EF"),
   effect_type = c("lnRR", "lnRR", "lnRR", "Hedges_d")
 )
 
@@ -839,7 +839,7 @@ make_panel <- function(metric_name, tag, panel_title, x_lab, show_y_labels = FAL
 
 p_n2o <- make_panel("N2O", "(a)", "N₂O排放量", "变化率 (%)", show_y_labels = TRUE)
 p_yld <- make_panel("Yield", "(b)", "作物产量", "变化率 (%)", show_y_labels = TRUE)
-p_yse <- make_panel("YSE", "(c)", "产量尺度N₂O排放", "变化率 (%)", show_y_labels = TRUE)
+p_yse <- make_panel("YSE", "(c)", "N₂O单位产量排放量", "变化率 (%)", show_y_labels = TRUE)
 p_ef  <- make_panel("EF", "(d)", "EF", "Hedges' d", show_y_labels = TRUE)
 
 fig <- (p_n2o | p_yld) / (p_yse | p_ef) +
